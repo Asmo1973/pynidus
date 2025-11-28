@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.0, pytest-9.0.1, pluggy-1.6.0
+rootdir: /home/asmolabs/Dev/asmolabs/pynidus
+configfile: pyproject.toml
+plugins: anyio-4.11.0
+collected 9 items
+
+tests/test_decorators.py ....                                            [ 44%]
+tests/test_factory.py ....                                               [ 88%]
+tests/test_integration.py .                                              [100%]
+
+============================== 9 passed in 0.37s ===============================
