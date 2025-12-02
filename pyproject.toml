@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Laurent Boucher", email = "lrb@civadis.be" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.122.0",
     "uvicorn>=0.38.0",
