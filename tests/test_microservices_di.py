@@ -41,7 +41,10 @@ async def test_microservice_controller_di():
     container.register(UserController)
     
     transport = MemoryTransport()
-    listener = MicroserviceListener(transport, container)
+    # Mock session factory for DI test since we don't need DB here
+    from unittest.mock import MagicMock
+    mock_session_factory = MagicMock()
+    listener = MicroserviceListener(transport, mock_session_factory, container)
     
     # 2. Start Listener (scans controllers)
     await listener.start()

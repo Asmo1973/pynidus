@@ -94,6 +94,7 @@ class ZeroMQTransport(TransportStrategy):
                     break
                     
                 parts = await self.sub_socket.recv_multipart()
+                logger.info(f"Received multipart: {parts}")
                 if len(parts) < 3:
                     continue
                     

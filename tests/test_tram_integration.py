@@ -37,7 +37,7 @@ async def test_tram_flow():
 
     # 2. Setup Components
     transport = MemoryTransport()
-    listener = MicroserviceListener(transport)
+    listener = MicroserviceListener(transport, AsyncSessionLocal)
     relay = MessageRelay(AsyncSessionLocal, transport, poll_interval=0.1)
     
     # 3. Start Listener (Consumer)
