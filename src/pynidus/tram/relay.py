@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Awaitable
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
@@ -72,7 +72,7 @@ class MessageRelay:
                             headers=message.headers
                         )
                         message.status = "PUBLISHED"
-                        message.processed_at = datetime.utcnow()
+                        message.processed_at = datetime.now(timezone.utc)
                     except Exception as e:
                         logger.error(f"Failed to publish message {message.id}: {e}")
                         message.status = "FAILED"
