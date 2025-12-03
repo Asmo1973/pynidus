@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, Depends
 from typing import Type, Any, Dict, List
 import inspect
+from pydantic import BaseModel
 from pynidus.core.module import ModuleMetadata
 from pynidus.common.decorators.http import RouteDefinition
 from pynidus.core.security import RoleChecker
@@ -36,6 +37,13 @@ class NidusFactory:
 
     def register_provider(self, provider_cls: Type[Any]):
         if provider_cls in self.container:
+            return
+
+        # Special handling for Pydantic models (Settings)
+        # They should be instantiated directly (reads from env)
+        if issubclass(provider_cls, BaseModel):
+            instance = provider_cls()
+            self.container[provider_cls] = instance
             return
 
         # Resolve dependencies for the provider
