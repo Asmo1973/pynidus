@@ -9,9 +9,15 @@ class SyncUser(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
 
-def test_sync_db_connection():
+@pytest.fixture(autouse=True)
+def clean_db():
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+    yield
+    Base.metadata.drop_all(engine)
 
+def test_sync_db_connection():
+    # Tables are created by fixture
     with SessionLocal() as session:
         new_user = SyncUser(name="Sync User")
         session.add(new_user)

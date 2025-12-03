@@ -1,10 +1,11 @@
+from pynidus.core.container import Container
 
 def Injectable():
     """
-    Decorator that marks a class as a provider.
+    Decorator that marks a class as a provider and registers it with the global container.
     """
     def wrapper(cls):
-        # We can add metadata here if needed
         setattr(cls, "__is_injectable__", True)
+        Container.get_instance().register(cls)
         return cls
     return wrapper

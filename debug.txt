@@ -1,0 +1,2 @@
+Transport Subscribers: ['user_created']
+Container Providers: [<class 'test_microservices_di.GreetingService'>, <class 'test_microservices_di.UserController'>]

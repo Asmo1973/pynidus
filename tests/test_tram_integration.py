@@ -17,11 +17,23 @@ RECEIVED_EVENTS = []
 async def handle_test_event(payload):
     RECEIVED_EVENTS.append(payload)
 
+import pytest_asyncio
+
+@pytest_asyncio.fixture(autouse=True)
+async def clean_db():
+    # Reset global state
+    RECEIVED_EVENTS.clear()
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
 @pytest.mark.asyncio
 async def test_tram_flow():
-    # 1. Setup Database
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # 1. Setup Database (handled by fixture)
 
     # 2. Setup Components
     transport = MemoryTransport()
