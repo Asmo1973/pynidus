@@ -16,3 +16,15 @@ class OutboxMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+class IncomingMessage(Base):
+    __tablename__ = "incoming_messages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True) # This will be the original message ID
+    channel: Mapped[str] = mapped_column(String, nullable=False)
+    payload: Mapped[Any] = mapped_column(JSON, nullable=False)
+    headers: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="PENDING", index=True) # PENDING, PROCESSED, FAILED
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)

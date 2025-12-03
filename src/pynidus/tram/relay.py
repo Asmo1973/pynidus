@@ -66,10 +66,14 @@ class MessageRelay:
 
                 for message in messages:
                     try:
+                        # Ensure headers exist and include message ID
+                        headers = message.headers or {}
+                        headers["x-message-id"] = message.id
+                        
                         await self.transport.publish(
                             channel=message.channel,
                             message=message.payload,
-                            headers=message.headers
+                            headers=headers
                         )
                         message.status = "PUBLISHED"
                         message.processed_at = datetime.now(timezone.utc)

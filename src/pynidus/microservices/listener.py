@@ -8,9 +8,15 @@ from pynidus.core.container import Container
 
 logger = logging.getLogger(__name__)
 
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from pynidus.tram.models import IncomingMessage as IncomingMessageModel
+from sqlalchemy import select
+from datetime import datetime, timezone
+
 class MicroserviceListener:
-    def __init__(self, transport: TransportStrategy, container: Optional[Container] = None):
+    def __init__(self, transport: TransportStrategy, session_factory: async_sessionmaker[AsyncSession], container: Optional[Container] = None):
         self.transport = transport
+        self.session_factory = session_factory
         self.container = container or Container.get_instance()
         self._running = False
 
@@ -62,14 +68,79 @@ class MicroserviceListener:
     def _create_handler_wrapper(self, handler: Callable, instance: Any = None):
         async def wrapper(message: IncomingMessage):
             try:
-                # We assume the handler accepts the payload.
-                if instance:
-                    # Call unbound function with instance (self) and payload
-                    await handler(instance, message.payload)
+                # Extract Message ID
+                headers = message.headers or {}
+                message_id = headers.get("x-message-id")
+                
+                if not message_id:
+                    logger.warning(f"Received message without x-message-id on {message.channel}. Processing without deduplication.")
+                    # Fallback to normal processing
+                    if instance:
+                        await handler(instance, message.payload)
+                    else:
+                        await handler(message.payload)
                 else:
-                    # Call bound method or function
-                    await handler(message.payload)
-                     
+                    # Deduplication Logic
+                    async with self.session_factory() as session:
+                        async with session.begin():
+                            # Check if exists
+                            stmt = select(IncomingMessageModel).where(IncomingMessageModel.id == message_id)
+                            result = await session.execute(stmt)
+                            existing = result.scalar_one_or_none()
+                            
+                            if existing:
+                                logger.info(f"Duplicate message {message_id} on {message.channel}. Skipping.")
+                                if message.ack:
+                                    await message.ack()
+                                return
+
+                            # Create new record
+                            incoming = IncomingMessageModel(
+                                id=message_id,
+                                channel=message.channel,
+                                payload=message.payload,
+                                headers=headers,
+                                status="PENDING"
+                            )
+                            session.add(incoming)
+                            # Commit to reserve the ID (optimistic locking not needed if we rely on PK constraint)
+                            # But we want to process it inside a transaction or after?
+                            # Ideally:
+                            # 1. Save as PENDING (commit)
+                            # 2. Process
+                            # 3. Update to PROCESSED (commit)
+                            # If 2 fails, we update to FAILED.
+                            
+                            # For simplicity and atomicity with the handler (if handler does DB work):
+                            # We might want to wrap handler in the same transaction?
+                            # But handler might have its own transaction logic (e.g. @Transactional).
+                            # So let's keep them separate for now or use nested transactions.
+                            # Let's stick to the plan: Save PENDING -> Process -> Update PROCESSED.
+                        
+                        # Now process
+                        try:
+                            if instance:
+                                await handler(instance, message.payload)
+                            else:
+                                await handler(message.payload)
+                                
+                            # Update status to PROCESSED
+                            async with session.begin():
+                                # Re-fetch to attach to session
+                                incoming = await session.get(IncomingMessageModel, message_id)
+                                if incoming:
+                                    incoming.status = "PROCESSED"
+                                    incoming.processed_at = datetime.now(timezone.utc)
+                                    
+                        except Exception as e:
+                            logger.error(f"Error processing message {message_id}: {e}")
+                            async with session.begin():
+                                incoming = await session.get(IncomingMessageModel, message_id)
+                                if incoming:
+                                    incoming.status = "FAILED"
+                                    incoming.error = str(e)
+                            raise e # Re-raise to trigger nack
+
                 if message.ack:
                     await message.ack()
             except Exception as e:
