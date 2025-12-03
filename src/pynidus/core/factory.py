@@ -1,8 +1,9 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Depends
 from typing import Type, Any, Dict, List
 import inspect
 from pynidus.core.module import ModuleMetadata
 from pynidus.common.decorators.http import RouteDefinition
+from pynidus.core.security import RoleChecker
 
 class NidusFactory:
     @staticmethod
@@ -101,10 +102,18 @@ class NidusFactory:
                 # FastAPI expects the function signature to match the parameters.
                 # Since we are using a bound method, 'self' is already handled.
                 
+                route_dependencies = []
+                
+                # Check for Security decorator
+                if hasattr(method, "__security_roles__"):
+                    roles = getattr(method, "__security_roles__")
+                    route_dependencies.append(Depends(RoleChecker(roles)))
+
                 router.add_api_route(
                     route_def.path,
                     method,
                     methods=[route_def.method],
+                    dependencies=route_dependencies
                 )
         
         app.include_router(router)

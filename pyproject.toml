@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.122.0",
     "pyzmq>=27.1.0",
     "sqlalchemy>=2.0.44",
+    "tornado>=6.5.2",
     "uvicorn>=0.38.0",
 ]
 
