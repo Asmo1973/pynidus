@@ -13,12 +13,19 @@ class OAuth2Config(BaseModel):
     audience: Optional[str] = None
     issuer: Optional[str] = None
 
+class ServerConfig(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = 3000
+    ssl_keyfile: Optional[str] = None
+    ssl_certfile: Optional[str] = None
+
 class BaseSettings(PydanticBaseSettings):
     """
     Base class for application settings.
     Reads from environment variables and .env files.
     """
     oauth2: OAuth2Config = Field(default_factory=lambda: OAuth2Config())
+    server: ServerConfig = Field(default_factory=lambda: ServerConfig())
 
     model_config = {
         "env_file": ".env",

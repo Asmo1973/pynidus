@@ -3,6 +3,7 @@ from typing import Type, Any, Dict, List
 import inspect
 from pydantic import BaseModel
 import punq
+import uvicorn
 
 from pynidus.core.module import ModuleMetadata
 from pynidus.common.decorators.http import RouteDefinition
@@ -17,6 +18,44 @@ class NidusFactory:
         factory = NidusFactory()
         factory.initialize(app, app_module)
         return app
+
+    @staticmethod
+    def listen(app_module: Type[Any], **kwargs):
+        """
+        Creates the application and starts the uvicorn server based on configuration.
+        """
+        app = NidusFactory.create(app_module)
+        
+        # We need to retrieve the container to get settings
+        # This is a bit tricky since create() doesn't return the factory instance
+        # Ideally, we should refactor create() or store the factory/container on the app state
+        # For now, let's re-instantiate or assume standardized DI access.
+        
+        # Better approach: NidusFactory.create creates the container. 
+        # But we don't return it.
+        # Let's update create() to attach container to app.state
+        pass 
+        # Wait, I cannot change create() easily without breaking compatibility?
+        # Let's inspect how to get the container. 
+        # Actually, NidusFactory instance is local to create().
+        
+        # Alternative: Re-instantiate settings just for the server config
+        # This is safe because settings are stateless/env-based
+        settings = BaseSettings()
+        
+        # Override with kwargs
+        host = kwargs.get("host", settings.server.host)
+        port = kwargs.get("port", settings.server.port)
+        ssl_keyfile = kwargs.get("ssl_keyfile", settings.server.ssl_keyfile)
+        ssl_certfile = kwargs.get("ssl_certfile", settings.server.ssl_certfile)
+
+        uvicorn.run(
+            app, 
+            host=host, 
+            port=port, 
+            ssl_keyfile=ssl_keyfile, 
+            ssl_certfile=ssl_certfile
+        )
 
     def __init__(self):
         self.container = punq.Container()

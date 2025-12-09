@@ -48,4 +48,29 @@ class OAuth2Config(BaseModel):
     issuer: Optional[str] = None
 ```
 
-To enable it, set environment variables like `OAUTH2__ENABLED=true` and `OAUTH2__SECRET_KEY=mykey`.
+
+## Server Configuration
+
+Pynidus simplifies uvicorn configuration via `ServerConfig`. The default prefix is `SERVER__`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER__HOST` | `0.0.0.0` | Bind host |
+| `SERVER__PORT` | `3000` | Bind port |
+| `SERVER__SSL_KEYFILE` | `None` | Path to SSL key file |
+| `SERVER__SSL_CERTFILE` | `None` | Path to SSL cert file |
+
+To use this configuration, start your app with `NidusFactory.listen`:
+
+```python
+from pynidus import NidusFactory
+
+# Starts uvicorn with settings from env or defaults
+NidusFactory.listen(AppModule)
+```
+
+You can also override settings programmatically:
+
+```python
+NidusFactory.listen(AppModule, port=8080)
+```
