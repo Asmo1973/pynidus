@@ -4,7 +4,10 @@ import inspect
 from pydantic import BaseModel
 from pynidus.core.module import ModuleMetadata
 from pynidus.common.decorators.http import RouteDefinition
-from pynidus.core.security import RoleChecker
+from pynidus.common.decorators.http import RouteDefinition
+from pynidus.core.security import RoleChecker, OAuth2RoleChecker
+from pynidus.core.config import BaseSettings
+
 
 class NidusFactory:
     @staticmethod
@@ -112,10 +115,20 @@ class NidusFactory:
                 
                 route_dependencies = []
                 
-                # Check for Security decorator
                 if hasattr(method, "__security_roles__"):
                     roles = getattr(method, "__security_roles__")
-                    route_dependencies.append(Depends(RoleChecker(roles)))
+                    
+                    # Determine security mechanism
+                    # Check if config is in container, else load default
+                    settings = self.container.get(BaseSettings)
+                    if not settings:
+                        settings = BaseSettings()
+
+                    if settings.oauth2.enabled:
+                        route_dependencies.append(Depends(OAuth2RoleChecker(roles, settings.oauth2)))
+                    else:
+                        route_dependencies.append(Depends(RoleChecker(roles)))
+
 
                 router.add_api_route(
                     route_def.path,

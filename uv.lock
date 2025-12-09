@@ -547,6 +547,7 @@ name = "pynidus"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aio-pika" },
     { name = "aiosqlite" },
     { name = "fastapi" },
     { name = "pydantic-settings" },
@@ -574,6 +575,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aio-pika", specifier = ">=9.5.8" },
     { name = "aio-pika", marker = "extra == 'rabbitmq'", specifier = ">=9.5.8" },
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "fastapi", specifier = ">=0.122.0" },
