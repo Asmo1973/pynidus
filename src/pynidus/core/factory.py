@@ -2,8 +2,9 @@ from fastapi import FastAPI, APIRouter, Depends
 from typing import Type, Any, Dict, List
 import inspect
 from pydantic import BaseModel
+import punq
+
 from pynidus.core.module import ModuleMetadata
-from pynidus.common.decorators.http import RouteDefinition
 from pynidus.common.decorators.http import RouteDefinition
 from pynidus.core.security import RoleChecker, OAuth2RoleChecker
 from pynidus.core.config import BaseSettings
@@ -18,7 +19,7 @@ class NidusFactory:
         return app
 
     def __init__(self):
-        self.container: Dict[Type[Any], Any] = {}
+        self.container = punq.Container()
 
     def initialize(self, app: FastAPI, module_cls: Type[Any]):
         if not hasattr(module_cls, "__module_metadata__"):
@@ -39,67 +40,48 @@ class NidusFactory:
             self.register_controller(app, controller_cls)
 
     def register_provider(self, provider_cls: Type[Any]):
-        if provider_cls in self.container:
-            return
-
         # Special handling for Pydantic models (Settings)
-        # They should be instantiated directly (reads from env)
         if issubclass(provider_cls, BaseModel):
-            instance = provider_cls()
-            self.container[provider_cls] = instance
+            try:
+                self.container.resolve(provider_cls)
+            except punq.MissingDependencyError:
+                 instance = provider_cls()
+                 self.container.register(provider_cls, instance=instance)
             return
 
-        # Resolve dependencies for the provider
+        # Restore strict type hint validation
         init_signature = inspect.signature(provider_cls.__init__)
-        dependencies = []
-        
         for param_name, param in init_signature.parameters.items():
             if param_name == 'self':
                 continue
-            
-            # Ignore *args and **kwargs
             if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
                 continue
-
             if param.annotation == inspect.Parameter.empty:
                  raise ValueError(f"Dependency {param_name} in {provider_cls.__name__} must have a type hint.")
-            
-            # Recursively ensure dependency is registered (if it's a provider)
-            # In a real app, we'd check if it's in the module's providers or imports.
-            # For simplicity, we assume global registration or self-contained for now.
-            if param.annotation not in self.container:
-                 # Auto-register if not explicitly registered? 
-                 # Or throw error? Let's try to instantiate if possible.
-                 self.register_provider(param.annotation)
-            
-            dependencies.append(self.container[param.annotation])
 
-        instance = provider_cls(*dependencies)
-        self.container[provider_cls] = instance
+        # Explicitly register the class as both service and implementation
+        self.container.register(provider_cls, provider_cls)
 
     def register_controller(self, app: FastAPI, controller_cls: Type[Any]):
-        # Resolve dependencies
+        # Restore strict type hint validation for controllers too
         init_signature = inspect.signature(controller_cls.__init__)
-        dependencies = []
-        
         for param_name, param in init_signature.parameters.items():
             if param_name == 'self':
                 continue
-            
-            # Ignore *args and **kwargs
             if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
                 continue
-
             if param.annotation == inspect.Parameter.empty:
                  raise ValueError(f"Dependency {param_name} in {controller_cls.__name__} must have a type hint.")
-            
-            if param.annotation not in self.container:
-                # Try to register it if it's missing (simple auto-wiring)
-                self.register_provider(param.annotation)
-            
-            dependencies.append(self.container[param.annotation])
 
-        controller_instance = controller_cls(*dependencies)
+        # Register the controller itself so punq can resolve it
+        self.container.register(controller_cls, controller_cls)
+
+        try:
+            controller_instance = self.container.resolve(controller_cls)
+        except punq.MissingDependencyError as e:
+             # Fallback or better error message?
+             # Punq error is usually descriptive enough but we can wrap it
+             raise ValueError(f"Could not resolve dependencies for {controller_cls.__name__}: {e}")
         
         # Register Routes
         prefix = getattr(controller_cls, "__prefix__", "")
@@ -109,20 +91,18 @@ class NidusFactory:
             if hasattr(method, "__route__"):
                 route_def: RouteDefinition = getattr(method, "__route__")
                 
-                # We need to wrap the method to ensure FastAPI calls it correctly
-                # FastAPI expects the function signature to match the parameters.
-                # Since we are using a bound method, 'self' is already handled.
-                
                 route_dependencies = []
                 
                 if hasattr(method, "__security_roles__"):
                     roles = getattr(method, "__security_roles__")
                     
                     # Determine security mechanism
-                    # Check if config is in container, else load default
-                    settings = self.container.get(BaseSettings)
-                    if not settings:
-                        settings = BaseSettings()
+                    try:
+                        settings = self.container.resolve(BaseSettings)
+                    except punq.MissingDependencyError:
+                         # Attempt to load BaseSettings if not explicitly registered
+                         # This might happen if ConfigModule wasn't imported
+                         settings = BaseSettings()
 
                     if settings.oauth2.enabled:
                         route_dependencies.append(Depends(OAuth2RoleChecker(roles, settings.oauth2)))

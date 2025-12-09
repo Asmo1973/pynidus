@@ -10,6 +10,16 @@ uv add pynidus
 
 (Note: Since this is currently a local project, you need to install dependencies manually or use `uv sync`)
 
+## Documentation
+
+Full documentation is available in the [docs/](docs/) directory.
+
+- [Core Concepts](docs/core.md)
+- [Configuration](docs/configuration.md)
+- [Database](docs/database.md)
+- [Security](docs/security.md)
+- [Microservices & Events](docs/microservices.md)
+
 ## Usage
 
 ### 1. Create a Service
