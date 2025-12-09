@@ -1,15 +1,22 @@
 import asyncio
 import logging
-import zmq
-import zmq.asyncio
 from typing import Any, Callable, Awaitable, Dict, Optional, List
 from .base import TransportStrategy, IncomingMessage
 import json
 
+try:
+    import zmq
+    import zmq.asyncio
+except ImportError:
+    zmq = None
+
 logger = logging.getLogger(__name__)
 
 class ZeroMQTransport(TransportStrategy):
-    def __init__(self, pub_port: int = 5555, sub_port: int = 5555, host: str = "127.0.0.1", pub_addr: Optional[str] = None, sub_addr: Optional[str] = None, context: Optional[zmq.asyncio.Context] = None):
+    def __init__(self, pub_port: int = 5555, sub_port: int = 5555, host: str = "127.0.0.1", pub_addr: Optional[str] = None, sub_addr: Optional[str] = None, context: Optional[Any] = None):
+        if zmq is None:
+            raise ImportError("pyzmq is required for ZeroMQTransport. Install with 'pip install pynidus[zeromq]'")
+            
         self.pub_port = pub_port
         self.sub_port = sub_port
         self.host = host
@@ -18,9 +25,9 @@ class ZeroMQTransport(TransportStrategy):
         self.pub_addr = pub_addr or f"tcp://{host}:{pub_port}"
         self.sub_addr = sub_addr or f"tcp://{host}:{sub_port}"
         
-        self.context: Optional[zmq.asyncio.Context] = context
-        self.pub_socket: Optional[zmq.asyncio.Socket] = None
-        self.sub_socket: Optional[zmq.asyncio.Socket] = None
+        self.context: Optional[Any] = context
+        self.pub_socket: Optional[Any] = None
+        self.sub_socket: Optional[Any] = None
         self.handlers: Dict[str, List[Callable[[IncomingMessage], Awaitable[None]]]] = {}
         self._listen_task: Optional[asyncio.Task] = None
 

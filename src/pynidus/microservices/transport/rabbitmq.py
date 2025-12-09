@@ -1,20 +1,27 @@
 import asyncio
 import logging
-import aio_pika
 from typing import Any, Callable, Awaitable, Dict, Optional, List
 from .base import TransportStrategy, IncomingMessage
 import json
+
+try:
+    import aio_pika
+except ImportError:
+    aio_pika = None
 
 logger = logging.getLogger(__name__)
 
 class RabbitMQTransport(TransportStrategy):
     def __init__(self, url: str, exchange_name: str = "pynidus_events"):
+        if aio_pika is None:
+            raise ImportError("aio-pika is required for RabbitMQTransport. Install with 'pip install pynidus[rabbitmq]'")
+            
         self.url = url
         self.exchange_name = exchange_name
-        self.connection: Optional[aio_pika.RobustConnection] = None
-        self.channel: Optional[aio_pika.RobustChannel] = None
-        self.exchange: Optional[aio_pika.RobustExchange] = None
-        self.queues: List[aio_pika.RobustQueue] = []
+        self.connection: Optional[Any] = None
+        self.channel: Optional[Any] = None
+        self.exchange: Optional[Any] = None
+        self.queues: List[Any] = []
 
     async def connect(self) -> None:
         logger.info(f"Connecting to RabbitMQ at {self.url}")
