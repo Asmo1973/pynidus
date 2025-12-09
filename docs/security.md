@@ -42,3 +42,35 @@ class AdminController:
 ```
 
 The `Security` decorator checks the JWT token (if enabled) in the `Authorization` header (`Bearer <token>`). It verifies the signature, expiration, audience, issuer, and checks if the `roles` claim contains the required role.
+
+## Spring-Style Expressions (@PreAuthorize)
+
+For more complex security logic, you can use the `@PreAuthorize` decorator, which supports expression checking similar to Spring Security.
+
+```python
+from pynidus import Controller, Get, PreAuthorize
+
+@Controller("/secure")
+class SecureController:
+    
+    @Get("/admin")
+    @PreAuthorize("has_role('admin')")
+    def admin_only(self):
+        return {"msg": "Admin only"}
+
+    @Get("/complex")
+    @PreAuthorize("has_role('admin') or has_role('manager')")
+    def admin_or_manager(self):
+        return {"msg": "Admin or Manager"}
+        
+    @Get("/authenticated")
+    @PreAuthorize("is_authenticated()")
+    def just_authenticated(self):
+        return {"msg": "Authenticated"}
+```
+
+### Supported Functions
+
+- `has_role('role_name')`: Returns True if the user has the specified role.
+- `has_any_role('role1', 'role2', ...)`: Returns True if the user has any of the specified roles.
+- `is_authenticated()`: Returns True if a valid token is present.

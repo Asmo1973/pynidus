@@ -132,8 +132,9 @@ class NidusFactory:
                 
                 route_dependencies = []
                 
-                if hasattr(method, "__security_roles__"):
-                    roles = getattr(method, "__security_roles__")
+                if hasattr(method, "__security_roles__") or hasattr(method, "__security_pre_authorize__"):
+                    roles = getattr(method, "__security_roles__", [])
+                    pre_authorize = getattr(method, "__security_pre_authorize__", None)
                     
                     # Determine security mechanism
                     try:
@@ -144,9 +145,9 @@ class NidusFactory:
                          settings = BaseSettings()
 
                     if settings.oauth2.enabled:
-                        route_dependencies.append(Depends(OAuth2RoleChecker(roles, settings.oauth2)))
+                        route_dependencies.append(Depends(OAuth2RoleChecker(roles, settings.oauth2, pre_authorize=pre_authorize)))
                     else:
-                        route_dependencies.append(Depends(RoleChecker(roles)))
+                        route_dependencies.append(Depends(RoleChecker(roles, pre_authorize=pre_authorize)))
 
 
                 router.add_api_route(

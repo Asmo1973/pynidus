@@ -9,9 +9,36 @@ except ImportError:
 
 from pynidus.core.config import OAuth2Config
 
+
+class SecurityExpressionEvaluator:
+    def __init__(self, roles: List[str]):
+        self.roles = set(roles)
+
+    def has_role(self, role: str) -> bool:
+        return role in self.roles
+    
+    def has_any_role(self, *roles: str) -> bool:
+        return any(r in self.roles for r in roles)
+
+    def is_authenticated(self) -> bool:
+        return True
+
+    def evaluate(self, expression: str) -> bool:
+        context = {
+            "has_role": self.has_role,
+            "has_any_role": self.has_any_role,
+            "is_authenticated": self.is_authenticated
+        }
+        try:
+            # Safe eval with restricted globals
+            return bool(eval(expression, {"__builtins__": None}, context))
+        except Exception:
+            return False
+
 class RoleChecker:
-    def __init__(self, allowed_roles: List[str]):
+    def __init__(self, allowed_roles: List[str], pre_authorize: Optional[str] = None):
         self.allowed_roles = allowed_roles
+        self.pre_authorize = pre_authorize
 
     def __call__(self, x_user_roles: Optional[str] = Header(default=None, alias="x-user-roles")):
         if not x_user_roles:
@@ -19,23 +46,27 @@ class RoleChecker:
         
         user_roles = [role.strip() for role in x_user_roles.split(",")]
         
-        # Check if any of the user's roles match the allowed roles
-        if not any(role in self.allowed_roles for role in user_roles):
+        if self.pre_authorize:
+            evaluator = SecurityExpressionEvaluator(user_roles)
+            if not evaluator.evaluate(self.pre_authorize):
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
+            return True
+
+        # Legacy role check
+        if self.allowed_roles and not any(role in self.allowed_roles for role in user_roles):
              raise HTTPException(status_code=403, detail="Insufficient permissions")
         
         return True
 
 class OAuth2RoleChecker:
-    def __init__(self, allowed_roles: List[str], config: OAuth2Config):
+    def __init__(self, allowed_roles: List[str], config: OAuth2Config, pre_authorize: Optional[str] = None):
         self.allowed_roles = allowed_roles
         self.config = config
+        self.pre_authorize = pre_authorize
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
     async def __call__(self, token: Optional[str] = Depends(OAuth2PasswordBearer(tokenUrl="token", auto_error=False))):
         if not self.config.enabled:
-             # Fallback or error? If this checker is used, it interprets enabled=False as "feature disabled"
-             # but we shouldn't be using this checker if it's disabled. 
-             # However, for safety:
              raise HTTPException(status_code=500, detail="OAuth2 security is configured but disabled in settings")
 
         if not token:
@@ -47,7 +78,7 @@ class OAuth2RoleChecker:
         try:
             kwargs = {}
             options = {
-                "verify_aud": False, # We handle audience manually because python-jose is tricky with optionality
+                "verify_aud": False,
                 "verify_iss": False
             }
             
@@ -61,20 +92,23 @@ class OAuth2RoleChecker:
 
             payload = jwt.decode(token, self.config.secret_key, algorithms=[self.config.algorithm], options=options, **kwargs)
             
-            # Additional safety check: if we require audience/issuer, ensure they are in payload
-            # (Though verify_aud=True should handle it, explicit check prevents library surprises)
             if self.config.audience and "aud" not in payload:
-                # Should have been caught by verify_aud, but double checking
                  raise HTTPException(status_code=401, detail="Invalid audience")
             
             user_roles = payload.get("roles", [])
-            # Support both list and comma-separated string
             if isinstance(user_roles, str):
                 user_roles = [r.strip() for r in user_roles.split(",")]
         except JWTError:
             raise HTTPException(status_code=401, detail="Could not validate credentials")
 
-        if not any(role in self.allowed_roles for role in user_roles):
+        if self.pre_authorize:
+            evaluator = SecurityExpressionEvaluator(user_roles)
+            if not evaluator.evaluate(self.pre_authorize):
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
+            return True
+
+        # Legacy role check
+        if self.allowed_roles and not any(role in self.allowed_roles for role in user_roles):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
 
         return True
