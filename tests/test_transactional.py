@@ -8,7 +8,7 @@ class MockTransactionManager:
         self.commit = Mock()
         self.rollback = Mock()
 
-class TestService:
+class TransactionalService:
     def __init__(self, manager):
         self.transaction_manager = manager
 
@@ -28,14 +28,14 @@ class TestService:
     async def async_error_method(self):
         raise ValueError("async_error")
 
-class TestServiceMissingManager:
+class ServiceMissingManager:
     @Transactional()
     def method(self):
         pass
 
 def test_transactional_success():
     manager = MockTransactionManager()
-    service = TestService(manager)
+    service = TransactionalService(manager)
 
     result = service.success_method()
 
@@ -46,7 +46,7 @@ def test_transactional_success():
 
 def test_transactional_error():
     manager = MockTransactionManager()
-    service = TestService(manager)
+    service = TransactionalService(manager)
 
     with pytest.raises(ValueError):
         service.error_method()
@@ -58,7 +58,7 @@ def test_transactional_error():
 @pytest.mark.asyncio
 async def test_transactional_async_success():
     manager = MockTransactionManager()
-    service = TestService(manager)
+    service = TransactionalService(manager)
 
     result = await service.async_success_method()
 
@@ -70,7 +70,7 @@ async def test_transactional_async_success():
 @pytest.mark.asyncio
 async def test_transactional_async_error():
     manager = MockTransactionManager()
-    service = TestService(manager)
+    service = TransactionalService(manager)
 
     with pytest.raises(ValueError):
         await service.async_error_method()
@@ -80,6 +80,6 @@ async def test_transactional_async_error():
     manager.rollback.assert_called_once()
 
 def test_missing_manager_attribute():
-    service = TestServiceMissingManager()
+    service = ServiceMissingManager()
     with pytest.raises(AttributeError, match="has no 'transaction_manager' attribute"):
         service.method()

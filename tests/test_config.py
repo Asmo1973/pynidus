@@ -2,19 +2,19 @@ import os
 import pytest
 from pynidus import ConfigService, BaseSettings, Injectable, NidusFactory, Module
 
-class TestSettings(BaseSettings):
+class AppSettings(BaseSettings):
     app_name: str = "Default App"
     debug_mode: bool = False
 
 @Injectable()
 class ConfiguredService:
     def __init__(self):
-        # In a real scenario, we would inject ConfigService[TestSettings]
+        # In a real scenario, we would inject ConfigService[AppSettings]
         # But for now, let's test manual instantiation or via factory if we register it
-        self.config = TestSettings()
+        self.config = AppSettings()
 
 def test_default_settings():
-    settings = TestSettings()
+    settings = AppSettings()
     assert settings.app_name == "Default App"
     assert settings.debug_mode is False
 
@@ -23,7 +23,7 @@ def test_env_override():
     os.environ["DEBUG_MODE"] = "true"
     
     try:
-        settings = TestSettings()
+        settings = AppSettings()
         assert settings.app_name == "Overridden App"
         assert settings.debug_mode is True
     finally:
@@ -33,17 +33,17 @@ def test_env_override():
 # Integration with DI
 @Injectable()
 class ServiceWithConfig:
-    def __init__(self, config: TestSettings):
+    def __init__(self, config: AppSettings):
         self.config = config
 
 @Module(
-    providers=[ServiceWithConfig, TestSettings],
+    providers=[ServiceWithConfig, AppSettings],
 )
 class ConfigModule:
     pass
 
 def test_di_injection():
-    # We need to register TestSettings as a provider in the module
+    # We need to register AppSettings as a provider in the module
     # NidusFactory should be able to resolve it
     app = NidusFactory.create(ConfigModule)
     

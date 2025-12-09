@@ -45,7 +45,28 @@ class OAuth2RoleChecker:
             raise ImportError("python-jose is required for OAuth2 security. Install 'pynidus[security]'")
 
         try:
-            payload = jwt.decode(token, self.config.secret_key, algorithms=[self.config.algorithm])
+            kwargs = {}
+            options = {
+                "verify_aud": False, # We handle audience manually because python-jose is tricky with optionality
+                "verify_iss": False
+            }
+            
+            if self.config.audience:
+                kwargs["audience"] = self.config.audience
+                options["verify_aud"] = True
+            
+            if self.config.issuer:
+                kwargs["issuer"] = self.config.issuer
+                options["verify_iss"] = True
+
+            payload = jwt.decode(token, self.config.secret_key, algorithms=[self.config.algorithm], options=options, **kwargs)
+            
+            # Additional safety check: if we require audience/issuer, ensure they are in payload
+            # (Though verify_aud=True should handle it, explicit check prevents library surprises)
+            if self.config.audience and "aud" not in payload:
+                # Should have been caught by verify_aud, but double checking
+                 raise HTTPException(status_code=401, detail="Invalid audience")
+            
             user_roles = payload.get("roles", [])
             # Support both list and comma-separated string
             if isinstance(user_roles, str):

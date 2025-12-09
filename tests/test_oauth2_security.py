@@ -2,7 +2,7 @@ import pytest
 import os
 from fastapi.testclient import TestClient
 from pynidus import NidusFactory, Module, Controller, Get, Security, Injectable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 try:
     from jose import jwt
 except ImportError:
@@ -57,7 +57,7 @@ def client(oauth2_env):
     return TestClient(app)
 
 def create_token(roles: list):
-    expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode = {"exp": expire, "roles": roles, "sub": "testuser"}
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
