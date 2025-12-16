@@ -1,13 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+from pynidus.core.config import BaseSettings
 
-# Default to in-memory SQLite for simplicity if no URL is provided
-DATABASE_URL = "sqlite:///./test.db"
+settings = BaseSettings()
+DATABASE_URL = settings.database.url
 
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},  # Needed for SQLite
-    echo=False,
+    echo=settings.database.echo,
 )
 
 SessionLocal = sessionmaker(

@@ -19,6 +19,22 @@ class ServerConfig(BaseModel):
     ssl_keyfile: Optional[str] = None
     ssl_certfile: Optional[str] = None
 
+
+class DatabaseConfig(BaseModel):
+    url: str = "sqlite+aiosqlite:///./test.db"
+    echo: bool = False
+
+class ZeroMQConfig(BaseModel):
+    host: str = "127.0.0.1"
+    pub_port: int = 5555
+    sub_port: int = 5555
+    pub_addr: Optional[str] = None
+    sub_addr: Optional[str] = None
+
+class RabbitMQConfig(BaseModel):
+    url: str = "amqp://guest:guest@localhost/"
+    exchange_name: str = "pynidus_events"
+
 class BaseSettings(PydanticBaseSettings):
     """
     Base class for application settings.
@@ -26,6 +42,9 @@ class BaseSettings(PydanticBaseSettings):
     """
     oauth2: OAuth2Config = Field(default_factory=lambda: OAuth2Config())
     server: ServerConfig = Field(default_factory=lambda: ServerConfig())
+    database: DatabaseConfig = Field(default_factory=lambda: DatabaseConfig())
+    transport_zeromq: ZeroMQConfig = Field(default_factory=lambda: ZeroMQConfig())
+    transport_rabbitmq: RabbitMQConfig = Field(default_factory=lambda: RabbitMQConfig())
 
     model_config = {
         "env_file": ".env",
